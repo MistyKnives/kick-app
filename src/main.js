@@ -66,13 +66,14 @@ function checkForUpdates() {
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 800,
+        darkTheme: true,
         height: 600,
         show: true,
         webPreferences: {
             nodeIntegration: true,
         },
         fullscreenable: true,
-        title: 'Mollie Manager',
+        title: 'Kick App',
         closable: true,
         autoHideMenuBar: true,
         icon: path.join(__dirname, '../assets/icons/app_icon.png'),
