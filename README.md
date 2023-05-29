@@ -6,4 +6,7 @@
 - 4: `electron-builder `
 - Wait and get a coffee like a professional IT person
 - 5: Get compiled files in `/dist`.
+
+
+
 <sup>This project is not official, partnered or anything else with Kick.</sup>
