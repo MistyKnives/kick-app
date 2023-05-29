@@ -1,8 +1,8 @@
-version: 1.0.1
+version: 1.0.0
 files:
-  - url: Kick-Desktop-Setup-1.0.1.exe
-    sha512: 6kLlAYLp+2lPRSFMxtvxWFS1RnC+M8LsHJkCPH72QEkAK3sokQ8m2LVIvgh6cpgSjQddlkrU7JkIhbBqlhetQw==
-    size: 62344006
-path: Kick-Desktop-Setup-1.0.1.exe
-sha512: 6kLlAYLp+2lPRSFMxtvxWFS1RnC+M8LsHJkCPH72QEkAK3sokQ8m2LVIvgh6cpgSjQddlkrU7JkIhbBqlhetQw==
-releaseDate: '2023-05-29T22:46:06.256Z'
+  - url: Kick-Desktop-Setup-1.0.0.exe
+    sha512: LyLzdaDkwCn5W4xuCT+j/CJMa9xk9MzjZ6nEJ9+GLYQT21XqttlewZSFmDPwoaM5VjV+36BxJos4N+eoJbwyzw==
+    size: 62343921
+path: Kick-Desktop-Setup-1.0.0.exe
+sha512: LyLzdaDkwCn5W4xuCT+j/CJMa9xk9MzjZ6nEJ9+GLYQT21XqttlewZSFmDPwoaM5VjV+36BxJos4N+eoJbwyzw==
+releaseDate: '2023-05-29T22:50:00.933Z'
