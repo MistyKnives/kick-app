@@ -1,7 +1,7 @@
-const { app, BrowserWindow, Tray, Menu, dialog, net } = require('electron');
-const { autoUpdater } = require('electron-updater');
+const { app, BrowserWindow, Tray, Menu, dialog, net, session } = require(`electron`);
+const { autoUpdater } = require(`electron-updater`);
 const DiscordRPC = require(`discord-rpc`);
-const path = require('path');
+const path = require(`path`);
 
 let mainWindow;
 let tray;
@@ -9,29 +9,29 @@ let oldTitle;
 
 const clientId = `1094344214864736398`;
 DiscordRPC.register(clientId);
-const rpc = new DiscordRPC.Client({ transport: 'ipc' });
+const rpc = new DiscordRPC.Client({ transport: `ipc` });
 
 // Check for updates
 function checkForUpdates() {
     // Configure update source
     autoUpdater.setFeedURL({
         provider: "github",
-        owner: 'ipexadev',
-        repo: 'kick-app',
+        owner: `ipexadev`,
+        repo: `kick-app`,
         // For private repositories, you can use an access token
-        // token: 'your-github-access-token'
+        // token: `your-github-access-token`
     });
 
     // Check for updates
     autoUpdater.checkForUpdates();
 
     // Handle update found
-    autoUpdater.on('update-available', () => {
+    autoUpdater.on(`update-available`, () => {
         dialog.showMessageBox({
-            type: 'info',
-            title: 'Update available',
-            message: 'A new update is available. Do you want to download and install it?',
-            buttons: ['Yes', 'No']
+            type: `info`,
+            title: `Update available`,
+            message: `A new update is available. Do you want to download and install it?`,
+            buttons: [`Yes`, `No`]
         }).then((result) => {
             if (result.response === 0) {
                 autoUpdater.downloadUpdate();
@@ -40,22 +40,22 @@ function checkForUpdates() {
     });
 
     // Handle update not available
-    autoUpdater.on('update-not-available', () => {
+    autoUpdater.on(`update-not-available`, () => {
         dialog.showMessageBox({
-            title: 'No updates',
-            icon: path.join(__dirname, '../assets/icons/app_icon.png'),
-            message: 'You are running the latest version of the app.'
+            title: `No updates`,
+            icon: path.join(__dirname, `../assets/icons/app_icon.png`),
+            message: `You are running the latest version of the app.`
         });
     });
 
     // Handle update downloaded
-    autoUpdater.on('update-downloaded', () => {
+    autoUpdater.on(`update-downloaded`, () => {
         dialog.showMessageBox({
-            type: 'info',
-            title: 'Update downloaded',
-            icon: path.join(__dirname, '../assets/icons/app_icon.png'),
-            message: 'The update has been downloaded. Restart the app to install the latest version.',
-            buttons: ['Restart', 'Later']
+            type: `info`,
+            title: `Update downloaded`,
+            icon: path.join(__dirname, `../assets/icons/app_icon.png`),
+            message: `The update has been downloaded. Restart the app to install the latest version.`,
+            buttons: [`Restart`, `Later`]
         }).then((result) => {
             if (result.response === 0) {
                 autoUpdater.quitAndInstall();
@@ -64,8 +64,8 @@ function checkForUpdates() {
     });
 
     // Handle update error
-    autoUpdater.on('error', (err) => {
-        dialog.showErrorBox('Update error', err.message);
+    autoUpdater.on(`error`, (err) => {
+        dialog.showErrorBox(`Update error`, err.message);
     });
 }
 
@@ -79,16 +79,16 @@ function createWindow() {
             nodeIntegration: true,
         },
         fullscreenable: true,
-        title: 'Kick App',
+        title: `Kick App`,
         closable: true,
         autoHideMenuBar: true,
-        icon: path.join(__dirname, '../assets/icons/app_icon.png'),
+        icon: path.join(__dirname, `../assets/icons/app_icon.png`),
     });
 
-    mainWindow.loadURL('https://www.kick.com');
+    mainWindow.loadURL(`https://www.kick.com`);
 
     // Emitted when the window is closed
-    mainWindow.on('close', (event) => {
+    mainWindow.on(`close`, (event) => {
         if (app.isQuitting) {
             mainWindow = null;
         } else {
@@ -97,74 +97,84 @@ function createWindow() {
         }
     });
 
+    const interceptedUsernames = new Set();
+
     /**
      * KickRPC Created By MistyKnives
      * https://github.com/MistyKnives/Kick-Discord-RPC for your own livestream RPC :)
      */
     mainWindow.on(`page-title-updated`, (event, title) => {
-        // Just in case any overlapping happens.
-        if(oldTitle !== null && title === oldTitle) return;
-        oldTitle = title;
+        const defaultSession = session.defaultSession;
 
-        // Split the title to grab the username (if exists)
-        let args = title.split(' | ');
-        let username = null;
+        interceptedUsernames.clear();
 
-        // Check if the title is longer than 1, then grab the username (if it actually is a username)
-        if (args.length > 1) {
-            username = args[0];
-            username = username.replace(/\s/g, '');
-        }
+        // Intercept the HTTP Requests
+        defaultSession.webRequest.onBeforeRequest((details, callback) => {
+            // Check if its a GET Request and URL starts with 'https://kick.com/api/v2/channels/'
+            if (details.method === `GET` && details.url.startsWith(`https://kick.com/api/v2/channels/`)) {
+                // Grab the username using regex '/channel/username'
+                const usernameRegex = /\/channels\/([a-zA-Z]+)/;
+                const match = details.url.match(usernameRegex);
+                // If matches then continue
+                if (match && match[1] && !/^\d+$/.test(match[1])) {
+                    const username = match[1];
+                    // Just add it to a Set so it only prints once, due to multiple requests being made that starts with that username
+                    if (!interceptedUsernames.has(username)) {
+                        interceptedUsernames.add(username);
+                        // Grab from MistyKnives Kick API
+                        const request = net.request(`https://mistyknives.co.uk/api/v1/channels/${username}`);
+                        request.on(`response`, (response) => {
+                            let data = ``;
+                    
+                            response.on(`data`, (chunk) => {
+                                data += chunk;
+                            });
+                            
+                            // Setup RPC
+                            response.on(`end`, () => {
+                                let json = JSON.parse(data);
+                                if (json.message !== null && typeof json.message === `string` && json.message.includes("not found in kick.com`s database")) return;
+                                if(json.livestream === null) return;
 
-        // Grab from MistyKnives Kick API
-        const request = net.request(`https://mistyknives.co.uk/api/v1/channels/${username}`);
-        request.on('response', (response) => {
-          let data = '';
-      
-          response.on('data', (chunk) => {
-            data += chunk;
-          });
-          
-          // Setup RPC
-          response.on('end', () => {
-            let json = JSON.parse(data);
-            if (json.message !== null && typeof json.message === 'string' && json.message.includes("not found in kick.com's database")) return;
-            if(json.livestream === null) return;
+                                const startTimestamp = new Date();
 
-            const startTimestamp = new Date();
+                                rpc.setActivity({
+                                    details: json.livestream.session_title,
+                                    state: json.livestream.categories[0].name,
+                                    startTimestamp,
+                                    largeImageKey: json.livestream.thumbnail.url,
+                                    largeImageText: json.user.username,
+                                    instance: false,
+                                    buttons: [{ label: `Watch Here`, url: `https://kick.com/${username}` }],
+                                });
+                            });
+                        });
 
-            rpc.setActivity({
-                details: json.livestream.session_title,
-                state: json.livestream.categories[0].name,
-                startTimestamp,
-                largeImageKey: json.livestream.thumbnail.url,
-                largeImageText: json.user.username,
-                instance: false,
-                buttons: [{ label: 'Watch Here', url: `https://kick.com/${username}` }],
-            });
-          });
+                        request.on(`error`, (error) => {
+                            console.error(`Error:`, error);
+                        });
+                    
+                        request.end();
+                    }
+                }
+            }
+            callback({});
         });
-      
-        request.on('error', (error) => {
-          console.error('Error:', error);
-        });
-      
-        request.end();
     });
 }
 
 function createTray() {
-    tray = new Tray(path.join(__dirname, '../assets/icons/app_icon.png'));
+    tray = new Tray(path.join(__dirname, `../assets/icons/app_icon.png`));
 
     const contextMenu = Menu.buildFromTemplate([
         {
-            label: 'Show',
+            label: `Show`,
             click: () => {
                 mainWindow.show();
             },
         },
         {
-            label: 'Exit',
+            label: `Exit`,
             click: () => {
                 app.isQuitting = true;
                 app.quit();
@@ -172,20 +182,20 @@ function createTray() {
         },
     ]);
 
-    tray.on('click', () => {
+    tray.on(`click`, () => {
         mainWindow.show();
     });
 
     tray.setContextMenu(contextMenu);
 }
 
-app.on('ready', () => {
+app.on(`ready`, () => {
     createWindow();
     createTray();
     checkForUpdates(); // Call the update checker function
 });
 
-app.on('activate', () => {
+app.on(`activate`, () => {
     if (BrowserWindow.getAllWindows().length === 0) {
         createWindow();
     }
