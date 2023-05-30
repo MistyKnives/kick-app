@@ -1,9 +1,15 @@
-const { app, BrowserWindow, Tray, Menu, dialog } = require('electron');
+const { app, BrowserWindow, Tray, Menu, dialog, net } = require('electron');
 const { autoUpdater } = require('electron-updater');
+const DiscordRPC = require(`discord-rpc`);
 const path = require('path');
 
 let mainWindow;
 let tray;
+let oldTitle;
+
+const clientId = `1094344214864736398`;
+DiscordRPC.register(clientId);
+const rpc = new DiscordRPC.Client({ transport: 'ipc' });
 
 // Check for updates
 function checkForUpdates() {
@@ -90,6 +96,61 @@ function createWindow() {
             mainWindow.hide();
         }
     });
+
+    /**
+     * KickRPC Created By MistyKnives
+     * https://github.com/MistyKnives/Kick-Discord-RPC for your own livestream RPC :)
+     */
+    mainWindow.on(`page-title-updated`, (event, title) => {
+        // Just in case any overlapping happens.
+        if(oldTitle !== null && title === oldTitle) return;
+        oldTitle = title;
+
+        // Split the title to grab the username (if exists)
+        let args = title.split(' | ');
+        let username = null;
+
+        // Check if the title is longer than 1, then grab the username (if it actually is a username)
+        if (args.length > 1) {
+            username = args[0];
+            username = username.replace(/\s/g, '');
+        }
+
+        // Grab from MistyKnives Kick API
+        const request = net.request(`https://mistyknives.co.uk/api/v1/channels/${username}`);
+        request.on('response', (response) => {
+          let data = '';
+      
+          response.on('data', (chunk) => {
+            data += chunk;
+          });
+          
+          // Setup RPC
+          response.on('end', () => {
+            let json = JSON.parse(data);
+            if (json.message !== null && typeof json.message === 'string' && json.message.includes("not found in kick.com's database")) return;
+            if(json.livestream === null) return;
+
+            const startTimestamp = new Date();
+
+            rpc.setActivity({
+                details: json.livestream.session_title,
+                state: json.livestream.categories[0].name,
+                startTimestamp,
+                largeImageKey: json.livestream.thumbnail.url,
+                largeImageText: json.user.username,
+                instance: false,
+                buttons: [{ label: 'Watch Here', url: `https://kick.com/${username}` }],
+            });
+          });
+        });
+      
+        request.on('error', (error) => {
+          console.error('Error:', error);
+        });
+      
+        request.end();
+    });
 }
 
 function createTray() {
@@ -129,3 +190,5 @@ app.on('activate', () => {
         createWindow();
     }
 });
+
+rpc.login({ clientId }).catch(console.error);
