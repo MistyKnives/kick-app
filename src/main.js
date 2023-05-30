@@ -109,63 +109,71 @@ function createWindow() {
         interceptedUsernames.clear();
 
         // Intercept the HTTP Requests
-        defaultSession.webRequest.onBeforeRequest((details, callback) => {
-            // Check if its a GET Request and URL starts with 'https://kick.com/api/v2/channels/'
-            if (details.method === `GET` && details.url.startsWith(`https://kick.com/api/v2/channels/`)) {
-                // Grab the username using regex '/channel/username'
-                const usernameRegex = /\/channels\/([a-zA-Z]+)/;
-                const match = details.url.match(usernameRegex);
-                // If matches then continue
-                if (match && match[1] && !/^\d+$/.test(match[1])) {
-                    const username = match[1];
-                    // Just add it to a Set so it only prints once, due to multiple requests being made that starts with that username
-                    if (!interceptedUsernames.has(username)) {
-                        interceptedUsernames.add(username);
-                        // Grab from MistyKnives Kick API
-                        const request = net.request(`https://mistyknives.co.uk/api/v1/channels/${username}`);
-                        request.on(`response`, (response) => {
-                            let data = ``;
-                    
-                            response.on(`data`, (chunk) => {
-                                data += chunk;
-                            });
-                            
-                            // Setup RPC
-                            response.on(`end`, () => {
-                                let json;
-                                try {
-                                    json = JSON.parse(data);
-                                } catch (error) {
-                                    console.error(`Error parsing JSON:`, error);
-                                    return;
-                                }
-                                if (json.message !== null && typeof json.message === `string` && json.message.includes("not found in kick.com`s database")) return;
-                                if(json.livestream === null) return;
+        if(title.split(` | `).length > 1) {
+            defaultSession.webRequest.onBeforeRequest((details, callback) => {
+                // Check if its a GET Request and URL starts with 'https://kick.com/api/v2/channels/'
+                if (details.method === `GET` && details.url.startsWith(`https://kick.com/api/v2/channels/`)) {
+                    // Grab the username using regex '/channel/username'
+                    const usernameRegex = /\/channels\/([^/]+)/;
+                    const match = details.url.match(usernameRegex);
+                    // If matches then continue
+                    if (match && match[1] && !/^\d+$/.test(match[1])) {
+                        const username = match[1];
+                        // Just add it to a Set so it only prints once, due to multiple requests being made that starts with that username
+                        if (!interceptedUsernames.has(username)) {
+                            interceptedUsernames.add(username);
+                            // Grab from MistyKnives Kick API
 
-                                const startTimestamp = new Date();
+                            if(title !== `${username} | Kick`) return;
 
-                                rpc.setActivity({
-                                    details: json.livestream.session_title,
-                                    state: json.livestream.categories[0].name,
-                                    startTimestamp,
-                                    largeImageKey: json.livestream.thumbnail.url,
-                                    largeImageText: json.user.username,
-                                    instance: false,
-                                    buttons: [{ label: `Watch Here`, url: `https://kick.com/${username}` }],
+                            const request = net.request(`https://kick.com/api/v1/channels/${username}`);
+                            request.on(`response`, (response) => {
+                                let data = ``;
+                        
+                                response.on(`data`, (chunk) => {
+                                    data += chunk;
+                                });
+                                
+                                // Setup RPC
+                                response.on(`end`, () => {
+                                    let json;
+                                    try {
+                                        json = JSON.parse(data);
+                                    } catch (error) {
+                                        return;
+                                    }
+
+                                    if(json === null) return;
+                                    if (json.message !== null && typeof json.message === `string` && json.message.includes("not found in kick.com`s database")) return;
+                                    if(json.livestream === null) return;
+
+                                    const startTimestamp = new Date();
+
+                                    rpc.setActivity({
+                                        details: json.livestream.session_title,
+                                        state: json.livestream.categories[0].name,
+                                        startTimestamp,
+                                        largeImageKey: json.livestream.thumbnail.url,
+                                        largeImageText: json.user.username,
+                                        instance: false,
+                                        buttons: [{ label: `Watch Here`, url: `https://kick.com/${username}` }],
+                                    });
                                 });
                             });
-                        });
 
-                        request.on(`error`, (error) => {
-                            console.error(`Error:`, error);
-                        });
-                    
-                        request.end();
+                            request.on(`error`, (error) => {
+                                console.error(`Error:`, error);
+                            });
+                        
+                            request.end();
+                        }
                     }
                 }
-            }
-            callback({});
-        });
+                callback({});
+            });
+        } else {
+            rpc.clearActivity();
+        }
     });
 }
 
