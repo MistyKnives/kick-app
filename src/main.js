@@ -132,7 +132,13 @@ function createWindow() {
                             
                             // Setup RPC
                             response.on(`end`, () => {
-                                let json = JSON.parse(data);
+                                let json;
+                                try {
+                                    json = JSON.parse(data);
+                                } catch (error) {
+                                    console.error(`Error parsing JSON:`, error);
+                                    return;
+                                }
                                 if (json.message !== null && typeof json.message === `string` && json.message.includes("not found in kick.com`s database")) return;
                                 if(json.livestream === null) return;
 
